@@ -1,6 +1,8 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
-  experimental: {},
+  experimental: {
+    serverComponentsExternalPackages: ['@prisma/client', 'prisma'],
+  },
   eslint: {
     // Ignora errori ESLint durante il build di produzione
     ignoreDuringBuilds: true,
