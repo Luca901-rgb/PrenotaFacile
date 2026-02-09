@@ -9,6 +9,7 @@ interface Booking {
   id: string;
   date: string;
   endTime: string;
+  status: string;
   client: { name: string; phone: string };
   staff: { name: string; color: string };
   service: { name: string };
