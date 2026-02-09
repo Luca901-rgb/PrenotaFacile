@@ -1,7 +1,12 @@
 import { NextAuthOptions } from 'next-auth'
 import CredentialsProvider from 'next-auth/providers/credentials'
-import { prisma } from './prisma'
 import bcrypt from 'bcryptjs'
+
+// Lazy load prisma only at runtime
+const getPrisma = async () => {
+  const { prisma } = await import('./prisma')
+  return prisma
+}
 
 export const authOptions: NextAuthOptions = {
   providers: [
@@ -16,6 +21,7 @@ export const authOptions: NextAuthOptions = {
           return null
         }
 
+        const prisma = await getPrisma()
         const business = await prisma.business.findUnique({
           where: { email: credentials.email }
         })
