@@ -1,13 +1,15 @@
 import { NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
-import { prisma } from '@/lib/prisma';
 
 export async function PUT(
   request: Request,
   { params }: { params: { id: string } }
 ) {
   try {
+    // Lazy load prisma only at runtime
+    const { prisma } = await import('@/lib/prisma');
+    
     const session = await getServerSession(authOptions);
 
     if (!session?.user?.id) {
@@ -50,6 +52,9 @@ export async function DELETE(
   { params }: { params: { id: string } }
 ) {
   try {
+    // Lazy load prisma only at runtime
+    const { prisma } = await import('@/lib/prisma');
+    
     const session = await getServerSession(authOptions);
 
     if (!session?.user?.id) {

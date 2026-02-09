@@ -1,5 +1,4 @@
 import { NextResponse } from 'next/server';
-import { prisma } from '@/lib/prisma';
 import { sendBookingConfirmation } from '@/lib/email';
 import { format } from 'date-fns';
 import { it } from 'date-fns/locale';
@@ -9,6 +8,9 @@ export async function GET(
   { params }: { params: { slug: string } }
 ) {
   try {
+    // Lazy load prisma only at runtime
+    const { prisma } = await import('@/lib/prisma');
+    
     const business = await prisma.business.findUnique({
       where: { bookingSlug: params.slug },
     });
@@ -63,6 +65,9 @@ export async function POST(
   { params }: { params: { slug: string } }
 ) {
   try {
+    // Lazy load prisma only at runtime
+    const { prisma } = await import('@/lib/prisma');
+    
     const { serviceId, staffId, date, client } = await request.json();
 
     const business = await prisma.business.findUnique({
