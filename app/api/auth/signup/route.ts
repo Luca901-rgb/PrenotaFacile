@@ -1,9 +1,11 @@
 import { NextResponse } from 'next/server';
-import { prisma } from '@/lib/prisma';
 import bcrypt from 'bcryptjs';
 
 export async function POST(request: Request) {
   try {
+    // Lazy load prisma only at runtime
+    const { prisma } = await import('@/lib/prisma');
+    
     const { name, email, password, phone, businessType } = await request.json();
 
     // Validate input
