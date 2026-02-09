@@ -1,0 +1,167 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// Account del business (barbiere, centro estetico, etc.)
+model Business {
+  id                String   @id @default(cuid())
+  name              String
+  email             String   @unique
+  password          String
+  phone             String?
+  address           String?
+  description       String?
+  businessType      String   // barbershop, beauty_center, hair_salon, massage_center, etc.
+  logo              String?
+  
+  // Subscription
+  subscriptionStatus String  @default("trial") // trial, active, cancelled, expired
+  subscriptionEnds   DateTime?
+  trialEnds          DateTime?
+  stripeCustomerId   String?  @unique
+  stripeSubscriptionId String? @unique
+  
+  // Public booking page settings
+  bookingSlug       String   @unique // URL slug for public booking page
+  bookingEnabled    Boolean  @default(true)
+  bookingMessage    String?  // Custom message for clients
+  
+  // Cancellation policy
+  cancellationPolicy String? @default("Le cancellazioni devono essere effettuate almeno 24 ore prima dell'appuntamento.")
+  cancellationHours  Int     @default(24) // Hours before appointment to allow cancellation
+  
+  // Email settings
+  sendEmailConfirmation Boolean @default(true)
+  emailFrom          String?
+  
+  // Business hours
+  businessHours     BusinessHours[]
+  
+  // Relations
+  staff             Staff[]
+  services          Service[]
+  bookings          Booking[]
+  clients           Client[]
+  
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+}
+
+// Orari di apertura
+model BusinessHours {
+  id          String   @id @default(cuid())
+  businessId  String
+  business    Business @relation(fields: [businessId], references: [id], onDelete: Cascade)
+  
+  dayOfWeek   Int      // 0 = Domenica, 1 = Lunedì, ... 6 = Sabato
+  openTime    String   // formato "HH:mm" es. "09:00"
+  closeTime   String   // formato "HH:mm" es. "18:00"
+  isClosed    Boolean  @default(false)
+  
+  @@unique([businessId, dayOfWeek])
+}
+
+// Staff/Operatori
+model Staff {
+  id          String   @id @default(cuid())
+  businessId  String
+  business    Business @relation(fields: [businessId], references: [id], onDelete: Cascade)
+  
+  name        String
+  email       String?
+  phone       String?
+  role        String?  // barber, hairdresser, beautician, massage_therapist, etc.
+  avatar      String?
+  color       String   @default("#3B82F6") // Colore per il calendario
+  isActive    Boolean  @default(true)
+  
+  // Relations
+  bookings    Booking[]
+  services    Service[] // Servizi che può eseguire questo operatore
+  
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+// Servizi/Trattamenti
+model Service {
+  id          String   @id @default(cuid())
+  businessId  String
+  business    Business @relation(fields: [businessId], references: [id], onDelete: Cascade)
+  
+  name        String
+  description String?
+  duration    Int      // Durata in minuti
+  price       Float
+  category    String?  // haircut, coloring, massage, facial, etc.
+  isActive    Boolean  @default(true)
+  
+  // Staff che può eseguire questo servizio
+  staff       Staff[]
+  
+  // Relations
+  bookings    Booking[]
+  
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+// Clienti
+model Client {
+  id          String   @id @default(cuid())
+  businessId  String
+  business    Business @relation(fields: [businessId], references: [id], onDelete: Cascade)
+  
+  name        String
+  email       String?
+  phone       String
+  notes       String?
+  
+  // Relations
+  bookings    Booking[]
+  
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  
+  @@unique([businessId, phone])
+}
+
+// Prenotazioni
+model Booking {
+  id          String   @id @default(cuid())
+  businessId  String
+  business    Business @relation(fields: [businessId], references: [id], onDelete: Cascade)
+  
+  clientId    String
+  client      Client   @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  
+  staffId     String
+  staff       Staff    @relation(fields: [staffId], references: [id], onDelete: Cascade)
+  
+  serviceId   String
+  service     Service  @relation(fields: [serviceId], references: [id], onDelete: Cascade)
+  
+  // Booking details
+  date        DateTime // Data e ora dell'appuntamento
+  endTime     DateTime // Ora di fine calcolata (date + service.duration)
+  status      String   @default("confirmed") // confirmed, cancelled, completed, no_show
+  notes       String?
+  
+  // Cancellation
+  cancelledAt DateTime?
+  cancelReason String?
+  
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  
+  @@index([businessId, date])
+  @@index([staffId, date])
+}
