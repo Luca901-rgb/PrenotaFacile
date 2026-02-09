@@ -92,3 +92,6 @@ export async function POST(request: Request) {
     );
   }
 }
+
+// Force dynamic rendering to avoid build-time database connection
+export const dynamic = 'force-dynamic'
