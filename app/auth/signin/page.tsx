@@ -20,7 +20,7 @@ export default function SignIn() {
 
     try {
       const result = await signIn('credentials', {
-        email,
+        email: email.trim().toLowerCase(),
         password,
         redirect: false,
       });
@@ -29,6 +29,7 @@ export default function SignIn() {
         setError('Email o password non corretti');
       } else {
         router.push('/dashboard');
+        router.refresh();
       }
     } catch (err) {
       setError('Si è verificato un errore. Riprova.');

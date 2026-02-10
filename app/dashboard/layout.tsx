@@ -3,7 +3,8 @@
 import { useSession } from 'next-auth/react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { Calendar, Users, Briefcase, Clock, Settings, LogOut, LayoutDashboard } from 'lucide-react';
+import { useEffect, useState } from 'react';
+import { Calendar, Users, Briefcase, Clock, Settings, LogOut, LayoutDashboard, CreditCard, Loader2 } from 'lucide-react';
 import { usePathname } from 'next/navigation';
 
 export default function DashboardLayout({
@@ -14,6 +15,54 @@ export default function DashboardLayout({
   const { data: session, status } = useSession();
   const router = useRouter();
   const pathname = usePathname();
+  const [subscriptionState, setSubscriptionState] = useState<{
+    stripeEnabled: boolean;
+    subscriptionStatus: string;
+    trialEnds: string | null;
+    showSubscribeScreen: boolean;
+  } | null>(null);
+  const [subscribeLoading, setSubscribeLoading] = useState(false);
+  const [subscribeError, setSubscribeError] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (status !== 'authenticated') return;
+    fetch('/api/dashboard/stats')
+      .then((res) => res.json())
+      .then((data) => {
+        const trialEnds = data.trialEnds ?? null;
+        const subscriptionStatus = data.subscriptionStatus ?? 'trial';
+        const stripeEnabled = data.stripeEnabled ?? false;
+        const trialExpired = subscriptionStatus === 'trial' && trialEnds && new Date(trialEnds) < new Date();
+        const notActive = subscriptionStatus === 'expired' || subscriptionStatus === 'cancelled';
+        const showSubscribeScreen = stripeEnabled && (trialExpired || notActive);
+        setSubscriptionState({
+          stripeEnabled,
+          subscriptionStatus,
+          trialEnds,
+          showSubscribeScreen,
+        });
+      })
+      .catch(() => setSubscriptionState(null));
+  }, [status]);
+
+  const handleSubscribe = async () => {
+    setSubscribeError(null);
+    setSubscribeLoading(true);
+    try {
+      const res = await fetch('/api/stripe/checkout', { method: 'POST' });
+      const data = await res.json();
+      if (data.url) {
+        window.location.href = data.url;
+        return;
+      }
+      const errMsg = [data.detail, data.error, data.hint].filter(Boolean).join(' — ') || 'Errore durante il checkout';
+      setSubscribeError(errMsg);
+    } catch {
+      setSubscribeError('Errore di connessione');
+    } finally {
+      setSubscribeLoading(false);
+    }
+  };
 
   if (status === 'loading') {
     return (
@@ -101,6 +150,41 @@ export default function DashboardLayout({
 
       {/* Main Content */}
       <main className="ml-64">
+        {/* Schermata "Abbonati" quando prova scaduta o abbonamento non attivo */}
+        {subscriptionState?.showSubscribeScreen && (
+          <div className="fixed inset-0 z-40 flex items-center justify-center bg-gray-900/80 backdrop-blur-sm">
+            <div className="mx-4 max-w-md rounded-2xl bg-white p-8 shadow-xl text-center">
+              <div className="w-16 h-16 mx-auto mb-6 rounded-full bg-primary-100 flex items-center justify-center">
+                <CreditCard className="w-8 h-8 text-primary-600" />
+              </div>
+              <h1 className="text-2xl font-bold text-gray-900 mb-2">
+                Abbonati per continuare
+              </h1>
+              <p className="text-gray-600 mb-6">
+                Il tuo periodo di prova è terminato. Abbonati a €9,99/mese per continuare a usare PrenotaFacile e gestire le tue prenotazioni.
+              </p>
+              {subscribeError && (
+                <p className="mb-4 p-3 bg-red-50 border border-red-200 text-red-700 rounded-lg text-sm">
+                  {subscribeError}
+                </p>
+              )}
+              <button
+                onClick={handleSubscribe}
+                disabled={subscribeLoading}
+                className="w-full inline-flex items-center justify-center gap-2 px-6 py-4 bg-primary-600 hover:bg-primary-700 text-white rounded-xl font-semibold text-lg transition disabled:opacity-50"
+              >
+                {subscribeLoading ? (
+                  <Loader2 className="w-5 h-5 animate-spin" />
+                ) : (
+                  'Abbonati a €9,99/mese'
+                )}
+              </button>
+              <p className="mt-4 text-sm text-gray-500">
+                Pagamento sicuro con Stripe · Cancella quando vuoi
+              </p>
+            </div>
+          </div>
+        )}
         {children}
       </main>
     </div>

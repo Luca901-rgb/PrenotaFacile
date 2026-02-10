@@ -3,22 +3,34 @@
 import { useSession } from 'next-auth/react';
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
-import { Calendar, Users, Briefcase, Clock, TrendingUp, ExternalLink } from 'lucide-react';
+import { useSearchParams } from 'next/navigation';
+import { Calendar, Users, Briefcase, Clock, TrendingUp, ExternalLink, CreditCard, Loader2 } from 'lucide-react';
 
 export default function Dashboard() {
   const { data: session } = useSession();
+  const searchParams = useSearchParams();
   const [stats, setStats] = useState({
     todayBookings: 0,
     totalStaff: 0,
     totalServices: 0,
     weekBookings: 0,
     bookingSlug: '',
+    subscriptionStatus: 'trial' as string,
+    trialEnds: null as string | null,
+    subscriptionEnds: null as string | null,
+    hasStripeCustomer: false,
+    stripeEnabled: false,
   });
   const [loading, setLoading] = useState(true);
+  const [stripeLoading, setStripeLoading] = useState<'checkout' | 'portal' | null>(null);
+  const [stripeError, setStripeError] = useState('');
 
   useEffect(() => {
     fetchStats();
   }, []);
+
+  const subscriptionSuccess = searchParams.get('subscription') === 'success';
+  const subscriptionCancelled = searchParams.get('subscription') === 'cancelled';
 
   const fetchStats = async () => {
     try {
@@ -31,6 +43,39 @@ export default function Dashboard() {
       setLoading(false);
     }
   };
+
+  const handleSubscribe = async () => {
+    setStripeError('');
+    setStripeLoading('checkout');
+    try {
+      const res = await fetch('/api/stripe/checkout', { method: 'POST' });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Errore');
+      if (data.url) window.location.href = data.url;
+    } catch (e) {
+      setStripeError(e instanceof Error ? e.message : 'Errore durante il checkout');
+    } finally {
+      setStripeLoading(null);
+    }
+  };
+
+  const handleManageSubscription = async () => {
+    setStripeError('');
+    setStripeLoading('portal');
+    try {
+      const res = await fetch('/api/stripe/portal', { method: 'POST' });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Errore');
+      if (data.url) window.location.href = data.url;
+    } catch (e) {
+      setStripeError(e instanceof Error ? e.message : 'Errore nell\'apertura del portale');
+    } finally {
+      setStripeLoading(null);
+    }
+  };
+
+  const formatDate = (iso: string | null) =>
+    iso ? new Date(iso).toLocaleDateString('it-IT', { day: 'numeric', month: 'long', year: 'numeric' }) : '';
 
   const statCards = [
     {
@@ -73,6 +118,16 @@ export default function Dashboard() {
         <p className="text-gray-600">
           Ecco una panoramica della tua attività
         </p>
+        {subscriptionSuccess && (
+          <div className="mt-4 p-4 bg-emerald-50 text-emerald-800 rounded-lg border border-emerald-200">
+            Abbonamento attivato con successo. Grazie!
+          </div>
+        )}
+        {subscriptionCancelled && (
+          <div className="mt-4 p-4 bg-amber-50 text-amber-800 rounded-lg border border-amber-200">
+            Checkout annullato. Puoi abbonarti quando vuoi dalla sezione Piano qui sotto.
+          </div>
+        )}
       </div>
 
       {/* Public Booking Link */}
@@ -97,6 +152,65 @@ export default function Dashboard() {
               <span>Apri</span>
             </Link>
           </div>
+        </div>
+      )}
+
+      {/* Abbonamento Stripe */}
+      {stats.stripeEnabled && (
+        <div className="mb-8 bg-white rounded-2xl shadow-sm border border-gray-100 p-6">
+          <div className="flex items-center gap-3 mb-4">
+            <div className="w-12 h-12 bg-emerald-100 rounded-xl flex items-center justify-center">
+              <CreditCard className="w-6 h-6 text-emerald-600" />
+            </div>
+            <div>
+              <h2 className="text-xl font-bold text-gray-900">Piano PrenotaFacile</h2>
+              <p className="text-sm text-gray-600">€9,99/mese · 14 giorni di prova gratuita</p>
+            </div>
+          </div>
+          {stripeError && (
+            <div className="mb-4 p-3 bg-red-50 text-red-700 rounded-lg text-sm">{stripeError}</div>
+          )}
+          {stats.subscriptionStatus === 'active' && stats.subscriptionEnds && (
+            <div className="flex flex-wrap items-center gap-4">
+              <p className="text-gray-700">
+                <span className="font-medium text-emerald-600">Abbonamento attivo</span>
+                {' · Rinnovo il '}
+                {formatDate(stats.subscriptionEnds)}
+              </p>
+              <button
+                onClick={handleManageSubscription}
+                disabled={!!stripeLoading}
+                className="inline-flex items-center gap-2 px-4 py-2 bg-gray-100 hover:bg-gray-200 text-gray-800 rounded-lg font-medium transition disabled:opacity-50"
+              >
+                {stripeLoading === 'portal' ? <Loader2 className="w-4 h-4 animate-spin" /> : null}
+                Gestisci abbonamento
+              </button>
+            </div>
+          )}
+          {(stats.subscriptionStatus === 'trial' || stats.subscriptionStatus === 'expired' || stats.subscriptionStatus === 'cancelled') && (
+            <div className="flex flex-wrap items-center gap-4">
+              {stats.subscriptionStatus === 'trial' && stats.trialEnds && (
+                <p className="text-gray-700">
+                  Periodo di prova fino al <strong>{formatDate(stats.trialEnds)}</strong>
+                </p>
+              )}
+              {(stats.subscriptionStatus === 'expired' || stats.subscriptionStatus === 'cancelled') && (
+                <p className="text-gray-700">
+                  <span className="font-medium text-amber-600">Abbonamento non attivo</span>
+                  {' · '}
+                  Riabbonati per continuare a usare tutte le funzioni.
+                </p>
+              )}
+              <button
+                onClick={handleSubscribe}
+                disabled={!!stripeLoading}
+                className="inline-flex items-center gap-2 px-5 py-2.5 bg-primary-600 hover:bg-primary-700 text-white rounded-lg font-semibold transition disabled:opacity-50"
+              >
+                {stripeLoading === 'checkout' ? <Loader2 className="w-4 h-4 animate-spin" /> : null}
+                {stats.subscriptionStatus === 'trial' ? 'Abbonati a €9,99/mese' : 'Riabbonati'}
+              </button>
+            </div>
+          )}
         </div>
       )}
 

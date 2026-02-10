@@ -69,12 +69,21 @@ export async function GET() {
       }),
     ]);
 
+    const stripeEnabled = Boolean(
+      process.env.STRIPE_SECRET_KEY && process.env.STRIPE_PRICE_ID
+    );
+
     return NextResponse.json({
       todayBookings,
       weekBookings,
       totalStaff,
       totalServices,
       bookingSlug: business.bookingSlug,
+      subscriptionStatus: business.subscriptionStatus,
+      trialEnds: business.trialEnds?.toISOString() ?? null,
+      subscriptionEnds: business.subscriptionEnds?.toISOString() ?? null,
+      hasStripeCustomer: Boolean(business.stripeCustomerId),
+      stripeEnabled,
     });
   } catch (error) {
     console.error('Stats error:', error);

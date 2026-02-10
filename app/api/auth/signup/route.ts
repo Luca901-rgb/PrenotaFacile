@@ -16,9 +16,10 @@ export async function POST(request: Request) {
       );
     }
 
+    const emailNorm = (email as string).trim().toLowerCase();
     // Check if user already exists
     const existingBusiness = await prisma.business.findUnique({
-      where: { email },
+      where: { email: emailNorm },
     });
 
     if (existingBusiness) {
@@ -53,7 +54,7 @@ export async function POST(request: Request) {
     const business = await prisma.business.create({
       data: {
         name,
-        email,
+        email: emailNorm,
         password: hashedPassword,
         phone,
         businessType,

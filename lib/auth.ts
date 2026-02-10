@@ -17,32 +17,30 @@ export const authOptions: NextAuthOptions = {
         password: { label: "Password", type: "password" }
       },
       async authorize(credentials) {
-        if (!credentials?.email || !credentials?.password) {
+        try {
+          if (!credentials?.email || !credentials?.password) return null
+          const email = (typeof credentials.email === 'string' ? credentials.email : String(credentials.email)).trim().toLowerCase()
+          const password = typeof credentials.password === 'string' ? credentials.password : String(credentials.password)
+
+          const prisma = await getPrisma()
+          const business = await prisma.business.findFirst({
+            where: {
+              email: { equals: email, mode: 'insensitive' }
+            }
+          })
+
+          if (!business) return null
+
+          const isPasswordValid = await bcrypt.compare(password, business.password)
+          if (!isPasswordValid) return null
+
+          return {
+            id: business.id,
+            email: business.email,
+            name: business.name,
+          }
+        } catch {
           return null
-        }
-
-        const prisma = await getPrisma()
-        const business = await prisma.business.findUnique({
-          where: { email: credentials.email }
-        })
-
-        if (!business) {
-          return null
-        }
-
-        const isPasswordValid = await bcrypt.compare(
-          credentials.password,
-          business.password
-        )
-
-        if (!isPasswordValid) {
-          return null
-        }
-
-        return {
-          id: business.id,
-          email: business.email,
-          name: business.name,
         }
       }
     })
@@ -69,4 +67,5 @@ export const authOptions: NextAuthOptions = {
     strategy: 'jwt'
   },
   secret: process.env.NEXTAUTH_SECRET,
+  trustHost: true,
 }
