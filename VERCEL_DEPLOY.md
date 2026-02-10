@@ -5,7 +5,7 @@
 - **URL produzione:** https://prenota-facile-self.vercel.app  
 - **Dashboard progetto:** https://vercel.com/lcammarota24-9213s-projects/prenota-facile-  
 - **Variabili d'ambiente:** https://vercel.com/lcammarota24-9213s-projects/prenota-facile-/settings/environment-variables  
-- **Build:** assicurati che il progetto sia collegato al repo GitHub `Luca901-rgb/PrenotaFacile` (branch `main`). Dopo ogni push il deploy parte da solo.
+- **Build:** progetto collegato al repo GitHub `Luca901-rgb/PrenotaFacile` (branch `main`). Ogni push su `main` avvia il deploy.
 
 ## 2. Variabili d'ambiente (obbligatorie)
 In **Settings → Environment Variables** aggiungi per **Production** (e se serve **Preview**):
